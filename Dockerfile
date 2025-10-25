@@ -1,36 +1,28 @@
-# Usa PHP con Composer y extensiones necesarias
-FROM php:8.2-apache
+# 1) Compilar assets con Vite
+FROM node:20-alpine AS assets
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY vite.config.js ./
+COPY resources ./resources
+# (opcional) si tienes tailwind/postcss config, copia sus archivos:
+# COPY tailwind.config.* postcss.config.* ./
+COPY resources/js ./resources/js
+COPY resources/css ./resources/css
+RUN npm run build
 
-# Instalar dependencias del sistema y extensiones de PHP
-RUN apt-get update && apt-get install -y \
-    git unzip libpng-dev libonig-dev libxml2-dev zip curl sqlite3 libsqlite3-dev \
-    && docker-php-ext-install pdo_mysql pdo_sqlite mbstring exif pcntl bcmath gd
-
-# Habilitar mod_rewrite para Laravel
-RUN a2enmod rewrite
-
-# Copiar los archivos de la aplicación al contenedor
-WORKDIR /var/www/html
+# 2) PHP + Composer
+FROM php:8.3-cli AS app
+WORKDIR /app
+# Instalar composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 COPY . .
+RUN composer install --no-dev --optimize-autoloader
+# Permisos para Laravel
+RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs && chmod -R 777 storage bootstrap/cache
+# Copiar assets generados
+COPY --from=assets /app/public/build ./public/build
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Instalar Composer y dependencias de Laravel
-COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
-RUN composer install --optimize-autoloader --no-interaction --prefer-dist
-
-
-
-# Crear base de datos vacía si no existe
-RUN mkdir -p database && touch database/database.sqlite
-
-# Establecer permisos correctos
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Establecer variables de entorno
+# 3) Comando de arranque (Render inyecta $PORT)
 ENV PORT=10000
-EXPOSE 10000
-
-# === 🚀 Comando de inicio ===
-# Ejecuta migraciones y luego arranca el servidor
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT
+CMD php -S 0.0.0.0:$PORT -t public public/index.php
