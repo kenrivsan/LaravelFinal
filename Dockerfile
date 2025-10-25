@@ -1,28 +1,33 @@
-# 1) Compilar assets con Vite
-FROM node:20-alpine AS assets
+# Imagen base PHP (Debian)
+FROM php:8.3-cli
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY vite.config.js ./
-COPY resources ./resources
-# (opcional) si tienes tailwind/postcss config, copia sus archivos:
-# COPY tailwind.config.* postcss.config.* ./
-COPY resources/js ./resources/js
-COPY resources/css ./resources/css
-RUN npm run build
 
-# 2) PHP + Composer
-FROM php:8.3-cli AS app
-WORKDIR /app
-# Instalar composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# 1) Paquetes del sistema + Node 20 + extensiones PHP
+RUN apt-get update \
+ && apt-get install -y curl git unzip libzip-dev ca-certificates gnupg \
+ && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y nodejs \
+ && docker-php-ext-install zip pdo_sqlite \
+ && rm -rf /var/lib/apt/lists/*
+
+# 2) Composer
+RUN curl -sS https://getcomposer.org/installer \
+ | php -- --install-dir=/usr/local/bin --filename=composer
+
+# 3) Copiar todo el proyecto
 COPY . .
-RUN composer install --no-dev --optimize-autoloader
-# Permisos para Laravel
-RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs && chmod -R 777 storage bootstrap/cache
-# Copiar assets generados
-COPY --from=assets /app/public/build ./public/build
 
-# 3) Comando de arranque (Render inyecta $PORT)
+# 4) Instalar PHP deps (crea vendor/)
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# 5) Compilar assets (ahora SÍ existe vendor/)
+RUN npm ci \
+ && npm run build
+
+# 6) Permisos Laravel
+RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs \
+ && chmod -R 777 storage bootstrap/cache
+
+# 7) Start
 ENV PORT=10000
-CMD php -S 0.0.0.0:$PORT -t public public/index.php
+CMD ["/bin/sh","-lc","./render-start.sh"]
