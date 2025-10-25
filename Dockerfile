@@ -15,7 +15,8 @@ COPY . .
 
 # Instalar Composer y dependencias de Laravel
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --optimize-autoloader --no-interaction --prefer-dist
+
 
 
 # Crear base de datos vacía si no existe
