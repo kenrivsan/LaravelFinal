@@ -13,6 +13,8 @@ RUN a2enmod rewrite
 WORKDIR /var/www/html
 COPY . .
 
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 # Instalar Composer y dependencias de Laravel
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 RUN composer install --optimize-autoloader --no-interaction --prefer-dist
