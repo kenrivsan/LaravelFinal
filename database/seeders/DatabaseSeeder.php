@@ -3,28 +3,23 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-
+use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\Category;
 use App\Models\Question;
 use App\Models\Answer;
 use App\Models\Comment;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // 1) Categorías base (del seeder que hicimos)
+        // 1) Categorías base
         $this->call(CategorySeeder::class);
 
         // 2) Usuarios
         User::factory(20)->create();
 
-        // Usuario fijo idempotente (no vuelve a fallar por UNIQUE)
         User::updateOrCreate(
             ['email' => 'test@example.com'],
             [
@@ -34,10 +29,10 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 3) Obtén las categorías existentes (sembradas arriba)
+        // 3) Categorías existentes
         $categories = Category::all();
         if ($categories->isEmpty()) {
-            // respaldo por si alguien borra las categorías
+            // por si alguien borra las categorías en algún momento
             $categories = Category::factory(4)->create();
         }
 

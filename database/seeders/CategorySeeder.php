@@ -23,6 +23,6 @@ class CategorySeeder extends Seeder
                 ['color' => $item['color']]
             );
         }
-        $this->call(CategorySeeder::class);
+        // 👇 NADA MÁS AQUÍ (no te llames a ti mismo)
     }
 }
